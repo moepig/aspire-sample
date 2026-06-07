@@ -9,4 +9,7 @@
     <Project Path="tests/Web.Tests/Web.Tests.csproj" />
     <Project Path="tests/Worker.Tests/Worker.Tests.csproj" />
   </Folder>
+  <Folder Name="/ソリューション項目/">
+    <File Path=".gitignore" />
+  </Folder>
 </Solution>

@@ -5,8 +5,17 @@ var builder = DistributedApplication.CreateBuilder(args);
 // ---------------------------------------------------------------------------
 
 // MySQL : Todo の永続化先
-var mysql = builder.AddMySql("mysql")
-    .WithDataVolume(); // コンテナ再作成をまたいでデータを保持
+var mysql = builder.AddMySql("mysql");
+
+// 永続ボリュームは通常実行(dotnet run)のみで使う。
+// 統合テストはソリューション単位で複数の AppHost を並列起動するため、同名の
+// 名前付きボリュームを共有すると InnoDB の ibdata1 ロック競合(error 11)で
+// 2 つ目の MySQL が起動できずハングする。テスト時は揮発ストレージにする。
+if (builder.Configuration["SampleApp:DisableDataVolume"] != "true")
+{
+    mysql.WithDataVolume(); // コンテナ再作成をまたいでデータを保持
+}
+
 var todoDb = mysql.AddDatabase("todos");
 
 // Valkey : Todo 一覧のキャッシュ（Redis 互換）
