@@ -1,0 +1,56 @@
+name: Tests
+
+# 手動トリガ専用。Actions タブの "Run workflow" から実行する。
+on:
+  workflow_dispatch:
+    inputs:
+      verbosity:
+        description: "dotnet test のログ詳細度"
+        type: choice
+        default: normal
+        options:
+          - quiet
+          - minimal
+          - normal
+          - detailed
+
+jobs:
+  test:
+    name: Build & integration tests
+    runs-on: ubuntu-latest
+    # Aspire のコンテナ起動 + イメージ pull を含むので余裕を持たせる
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore SampleApp.slnx
+
+      - name: Build
+        run: dotnet build SampleApp.slnx --configuration Release --no-restore
+
+      # 各テストプロジェクトが Aspire.Hosting.Testing で MySQL / Valkey / ElasticMQ を
+      # Docker コンテナとして起動する統合テスト。ubuntu-latest は Docker が利用可能。
+      - name: Test
+        run: >-
+          dotnet test SampleApp.slnx
+          --configuration Release
+          --no-build
+          --verbosity ${{ inputs.verbosity }}
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory ./TestResults
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./TestResults/**/*.trx
+          if-no-files-found: warn
