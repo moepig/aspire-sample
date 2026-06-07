@@ -17,6 +17,9 @@ public sealed class AppHostFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         var ct = TestContext.Current.CancellationToken;
+        // 並列実行で MySQL の名前付きボリュームを共有しないよう、テストでは永続ボリュームを無効化する。
+        // AppHost のトップレベル文は CreateAsync 内で実行されるため、その前に設定する必要がある。
+        Environment.SetEnvironmentVariable("SampleApp__DisableDataVolume", "true");
         var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.SampleApp_AppHost>(ct);
         _app = await builder.BuildAsync(ct);
         await _app.StartAsync(ct);

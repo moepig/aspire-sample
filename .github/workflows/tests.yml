@@ -7,12 +7,16 @@ on:
       verbosity:
         description: "dotnet test のログ詳細度"
         type: choice
-        default: normal
+        default: minimal
         options:
           - quiet
           - minimal
           - normal
           - detailed
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
   test:
@@ -36,21 +40,27 @@ jobs:
       - name: Build
         run: dotnet build SampleApp.slnx --configuration Release --no-restore
 
-      # 各テストプロジェクトが Aspire.Hosting.Testing で MySQL / Valkey / ElasticMQ を
-      # Docker コンテナとして起動する統合テスト。ubuntu-latest は Docker が利用可能。
+      # Aspire.Hosting.Testing で MySQL / Valkey / ElasticMQ を起動する統合テスト。
+      # ソリューション単位でまとめて実行する（テスト時は AppHost が MySQL の永続ボリュームを
+      # 無効化するため、並列実行でもボリュームのロック競合は起きない）。
+      # --blame-hang-timeout でハング時はダンプして失敗させる。
       - name: Test
         run: >-
           dotnet test SampleApp.slnx
           --configuration Release
           --no-build
           --verbosity ${{ inputs.verbosity }}
-          --logger "trx;LogFileName=test-results.trx"
+          --logger "trx"
           --results-directory ./TestResults
+          --blame-hang-timeout 10m
+          --blame-hang-dump-type full
 
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: ./TestResults/**/*.trx
+          path: |
+            ./TestResults/**/*.trx
+            ./TestResults/**/*.dmp
           if-no-files-found: warn
